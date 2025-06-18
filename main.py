@@ -1,15 +1,14 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from PIL import Image, ImageEnhance
-import cv2
 import numpy as np
-import base64
-import io
+import io, base64
+import cv2
 
 app = FastAPI()
 
 @app.post("/enhance")
-async def enhance_image(file: UploadFile = File(...)):
+async def enhance(file: UploadFile = File(...)):
     input_image = Image.open(io.BytesIO(await file.read())).convert("RGB")
 
     # Görsel iyileştirme
@@ -20,18 +19,20 @@ async def enhance_image(file: UploadFile = File(...)):
     enhancer = ImageEnhance.Color(image)
     image = enhancer.enhance(1.1)
 
-    # Açı düzeltme
+    # Eğim düzeltme
     image_np = np.array(image)
     angle = detect_skew_angle(image_np)
-    rotated = rotate_image(image_np, angle)
-    result = Image.fromarray(rotated)
+    result_np = rotate_image(image_np, angle)
+    result_image = Image.fromarray(result_np)
 
-    # Görseli base64 olarak döndür
-    buffered = io.BytesIO()
-    result.save(buffered, format="JPEG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
+    buffer = io.BytesIO()
+    result_image.save(buffer, format="JPEG")
+    img_base64 = base64.b64encode(buffer.getvalue()).decode()
 
-    return JSONResponse(content={"image_base64": img_str})
+    return JSONResponse(content={"image_base64": img_base64})
+
+# Skew düzeltme fonksiyonları aynen kullanılabilir
+
 
 def detect_skew_angle(image_np):
     gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
